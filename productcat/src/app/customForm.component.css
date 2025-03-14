@@ -1,0 +1,39 @@
+.row{
+    display: flex;
+    flex-direction: row;
+    gap: 1px;
+}
+.formElement{
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    box-sizing: border-box;
+    padding: 3%;
+    border-color: gray;
+    box-shadow: 2px 5px 5px gray;
+    border-style: solid;
+    border-width: 1px;
+    width: 40%;
+    height: 100%;
+    margin: auto;
+    justify-items: center;
+}
+
+.formContainer{
+    height: 40%;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 2%;
+}
+
+.submitBtn{
+    width: 30%;
+    margin: auto;
+    cursor: pointer;
+}
+
+.label{
+    box-sizing: border-box;
+    padding: 2%;
+}
