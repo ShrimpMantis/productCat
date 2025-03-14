@@ -2,8 +2,8 @@
 import { useEffect, useReducer, useState } from "react";
 import styles from "./page.module.css";
 import fetchData from "@/data/product";
-import Tile from "./Tile";
 import CustomForm from "./customform";
+import Grid from "./Grid";
 
 const callReducer = (state, action) => {
   switch(action.type){
@@ -46,6 +46,22 @@ const callReducer = (state, action) => {
             isLoading:false,
             isError:false
         }
+    case "EDIT":
+      const currState = [...state.payload];
+      currState.map((el, idx) => {
+        if(el.id === action.payload.id) {
+          el.name = action.payload.name;
+          el.category= action.payload.category;
+          el.price =action.payload.price;
+          el.ratings = action.payload.ratings;
+        }
+      });
+      return {
+        ...state,
+        payload: currState,
+        isLoading:false,
+        isError:false
+      };
   }
 };
 
@@ -54,23 +70,43 @@ const callReducerAction = (state, action) =>{
     case "FILTER":
       return {
           ...state,
-          payload: action.payload
+          payload: action.payload,
       };
     case "SORT" :
+      const sortOrder = action.payload.order;
+      const sortCateg = action.payload.category;
+      const sortedArray = [...state.payload];
+      if(sortOrder === "asc" && sortCateg === "price"){
+        sortedArray.sort((x,y) =>  x.price - y.price);
+      } else if(sortOrder === "desc" && sortCateg === "price"){
+          sortedArray.sort((x,y) => {return y.price - x.price });
+      } else if(sortOrder === "asc" && sortCateg === "rating"){
+        sortedArray.sort((x,y) => {return x.ratings - y.ratings });
+      } else if(sortOrder === "desc" && sortCateg === "rating"){
+          sortedArray.sort((x,y) => {return y.ratings - x.ratings });
+      } else if(sortOrder === "asc" && sortCateg === "alpha"){
+        sortedArray.sort((x,y) => { return x.name < y.name ? -1 :x.name > y.name ? 1:0 });
+      } else if(sortOrder === "desc" && sortCateg === "alpha"){
+        sortedArray.sort((x,y) => {return x.name < y.name ? 1 :x.name > y.name ? -1 : 0 });
+     }else if(sortOrder === "asc" && sortCateg === "id"){
+      sortedArray.sort((x,y) => { return x.id- y.id});
+      } else if(sortOrder === "desc" && sortCateg === "id"){
+        sortedArray.sort((x,y) => {return y.id - x.id });
+    }
       return {
           ...state,
-          payload: action.payload
+          payload: sortedArray,
       };
   }
 };
 
 export default function Home() {
   const [products, dispatchCall] = useReducer(callReducer, {
-    payload: [{}], isLoading: false, isError: false
+    payload: [], isLoading: false, isError: false
   });
 
   const[currProducts, dispatchActionCall] = useReducer(callReducerAction, {
-    payload: [{}]
+    payload: []
   });
   const[category, setCateg] = useState("fruit");
   const[sortCateg, setSortCateg] = useState("choose");
@@ -81,11 +117,10 @@ export default function Home() {
       dispatchCall({type:"CALL_INIT"});
       try {
         const result  = await fetchData();
+        const filteredProducts = result.filter((element, index) => {
+          return element.category === category;
+       });
         dispatchCall({type:"SUCCESS", payload: result});
-        const filteredProducts = products.payload.filter((element, index) => {
-         return element.category === category;
-      });
-
         dispatchActionCall({type:"FILTER", payload:filteredProducts});
        
       }
@@ -100,39 +135,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if(!products.isLoading){
+    if(!products.isLoading) {
       const filteredProducts = products.payload.filter((element, index) => {
        return element.category === category;
     });
       dispatchActionCall({type:"FILTER", payload:filteredProducts});
+      dispatchActionCall({type:"SORT", payload: {order: sortOrder, category: sortCateg}});
     }
   
   }, [category, products]);
 
   useEffect(() => {
     if(!products.isLoading){
-       const sortedArray = currProducts.payload.slice();
-       if(sortOrder === "asc" && sortCateg === "price"){
-          sortedArray.sort((x,y) =>  x.price - y.price);
-          dispatchActionCall({type:"SORT", payload: sortedArray});
-          return;
-       }
-       if(sortOrder === "desc" && sortCateg === "price"){
-          sortedArray.sort((x,y) => {return y.price - x.price });
-          dispatchActionCall({type:"SORT", payload: [...sortedArray]});
-          return;
-       }
-       if(sortOrder === "asc" && sortCateg === "rating"){
-        sortedArray.sort((x,y) => {return x.ratings - y.ratings });
-        dispatchActionCall({type:"SORT", payload: sortedArray});
-        return;
-     }
-     if(sortOrder === "desc" && sortCateg === "rating"){
-        sortedArray.sort((x,y) => {return y.ratings - x.ratings });
-        dispatchActionCall({type:"SORT", payload: sortedArray});
-        return;
-     }
-       
+       dispatchActionCall({type:"SORT", payload: {order: sortOrder, category: sortCateg}});
     }
   }, [sortOrder, sortCateg])
 
@@ -158,6 +173,9 @@ export default function Home() {
     };
     dispatchCall({type:"ADD", payload: payloadObj});
   };
+  const handleEditSubmitCallBack = (editedObject) => {
+    dispatchCall({type:"EDIT", payload: editedObject})
+  };
   return (
     <div>
       {/* Form */}
@@ -175,6 +193,8 @@ export default function Home() {
               <label className={styles.labelSpan}>Sort
                   <select name="price" value={sortCateg} onChange={(e) => handleSortCategChange(e)}>
                     <option value="choose">Sort category</option>
+                    <option value="alpha">Alphabetically</option>
+                    <option value="id">Id</option>
                     <option value="price">Price</option>
                     <option value="rating">Rating</option>
                   </select>
@@ -188,24 +208,15 @@ export default function Home() {
                 </select>
               </label>
           </div>
-          { products && products.isLoading ? <div className={styles.loadingDiv}> Loading...</div> :
-            <div className={styles.tileContainer}>
-                <div className={styles.gridRow}>
+          { products && products.isLoading && currProducts && currProducts.payload.length == 0 ? 
+            <div className={styles.loadingDiv}> <h4>Loading...</h4></div> :
+            <div className={styles.gridContainer}>
                     { 
-                      currProducts.payload.map((element, index) => {
-                        return (
-                        
-                              <Tile key={index} 
-                                name={element.name} 
-                                price={element.price} 
-                                ratings={element.ratings}
-                                idx={element.id}
-                                deleteCallBack={(e) => handleDeleteCallBack(e)}/>
-                        
-                        );
-                      })
-                  }
-                </div>
+                       <Grid 
+                       products={currProducts.payload}
+                       deleteCallBack={(e) => handleDeleteCallBack(e)} 
+                       handleSubmitCb={(e) => handleEditSubmitCallBack(e)}/>
+                    }
             </div>
           }
       </div>
